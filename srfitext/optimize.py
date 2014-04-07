@@ -359,7 +359,7 @@ def bayesian(recipe, steps=50000, S=None, *args, **kwargs):
         start = dict(zip(names, values))
         # determine the scale for proposal distribution
         if S == None:
-            S = np.concatenate([[d[v.name] / 2] if isinstance(d[v.name], float) else d[v.name] / 2 for v in model.vars])
+            S = np.concatenate([[d[v.name] / 2] if isinstance(d[v.name], float) else d[v.name].ravel() / 2 for v in model.vars])
         step = MetropolisExt(model.vars, S=S, tune_interval=10000)
         # step.scaling = 0.5
         logp = step.fs[0]
@@ -384,7 +384,7 @@ def bayesian(recipe, steps=50000, S=None, *args, **kwargs):
     for n in names:
         rv.append(np.mean(trace[n], axis=0))
     rv = recipe.pconverter.toArray(rv)
-    
+
     return {'x': rv,
             'raw': trace
             }

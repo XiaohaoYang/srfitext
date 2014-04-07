@@ -2,6 +2,7 @@
 import numpy as np
 from diffpy.srfit.fitbase import FitRecipe
 from srfitext.utils import PConverter
+import deap
 
 class FitRecipeExt(FitRecipe):
     '''modified fitrecipe
@@ -78,6 +79,8 @@ class FitRecipeExt(FitRecipe):
         """
         if len(p) != self.pn and (p != []):
             p = self.pconverter.toList(p)
+
+        p1 = p[2]
 
         # Prepare, if necessary
         self._prepare()
@@ -237,9 +240,21 @@ class FitRecipeExt(FitRecipe):
         self.pconverter = PConverter(self)
         return
 
+    def fixCopy(self, *args, **kw):
+        FitRecipe.fix(self, *args, **kw)
+        self.pn = len(self.names)
+        self.pconverter = PConverter(self, copy=True)
+        return
+
     def free(self, *args, **kw):
         FitRecipe.free(self, *args, **kw)
         self.pn = len(self.names)
         self.pconverter = PConverter(self)
+        return
+
+    def freeCopy(self, *args, **kw):
+        FitRecipe.free(self, *args, **kw)
+        self.pn = len(self.names)
+        self.pconverter = PConverter(self, copy=True)
         return
 

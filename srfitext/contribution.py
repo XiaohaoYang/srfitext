@@ -81,27 +81,6 @@ class PDFContributionExt(PDFContribution):
             self.constrain(gen.qmin, self.qmin)
         return
 
-    '''def _setupGeneratorAbnormal(self, gen):
-        """Setup a generator for scaling gr generator.
-        """
-        # Add the generator to this FitContribution
-        self.addProfileGenerator(gen)
-        # Set the proper equation for the fit, depending on the number of
-        # phases we have.
-        gnames = self._generators.keys()
-        eqstr = " + ".join(gnames)
-        eqstr = "scale * ( %s )" % eqstr
-        self.eqstr = eqstr
-        self.setEquation(eqstr)
-        # Update with our metadata
-        gen.meta.update(self._meta)
-        gen.processMetaData()
-        self.newParameter("xscale", 1.0)
-        self.newParameter("yscale", 1.0)
-        self.constrain(gen.xscale, self.xscale)
-        self.constrain(gen.yscale, self.yscale)
-        return'''
-
     def setParallel(self, parallel=2):
         '''set number of cpus in parallel calculation
         '''

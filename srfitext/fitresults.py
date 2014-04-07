@@ -74,7 +74,7 @@ class FitResultsExt(FitResults):
         f.close()
         return
 
-def plotResults(recipe, filepath=None, clf=False, title='plot', show=False):
+def plotResults(recipe, filepath=None, clf=True, title='plot', show=False):
     """Plot the results contained within a refined FitRecipe."""
 
     # All this should be pretty familiar by now.
@@ -109,7 +109,7 @@ def plotResults(recipe, filepath=None, clf=False, title='plot', show=False):
 def bayesianPlot(trace, filepath, show=False, shrink=1, burnout=0):
     if not os.path.exists(filepath):
         os.mkdir(filepath)
-            
+
     varnames = trace.varnames
     for varn in varnames:
         data = trace.samples[varn][burnout::shrink]

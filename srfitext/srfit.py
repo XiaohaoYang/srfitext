@@ -632,16 +632,26 @@ class BaseSrfitExt(object):
                 if self.savename != None and self.savepath != None \
                         and os.path.split(kwargs['filename'])[0] == '':
                     kwargs['filename'] = os.path.join(self.savepath, self.savename, kwargs['filename'])
+                if not os.path.exists(os.path.split(kwargs['filename'])[0]):
+                    os.mkdir(os.path.split(kwargs['filename'])[0])
 
         # free/fix tags
+        copy = False
+        if rsobj.method in ['ga', 'de']:
+            fix = recipe.fixCopy
+            free = recipe.freeCopy
+        else:
+            fix = recipe.fix
+            free = recipe.free
+
         for pattern in rsobj.free:
             matchedtag = fnmatch.filter(alltags, pattern)
             for tag in matchedtag:
-                recipe.free(tag)
+                free(tag)
         for pattern in rsobj.fix:
             matchedtag = fnmatch.filter(alltags, pattern)
             for tag in matchedtag:
-                recipe.fix(tag)
+                fix(tag)
         if hasattr(rsobj, 'maxxint'):
             kwargs['maxxint'] = rsobj.maxxint
         if hasattr(rsobj, 'maxiter'):

@@ -143,6 +143,7 @@ class StructureExt(object):
         stru._params = self._params
         stru._extparams = self._extparams
         stru.periodic = self.periodic
+        stru.parent = self
         return stru
 
     ###########################################################
@@ -175,12 +176,12 @@ class StructureExt(object):
         parse stru and store the information to self.xxx
         FIXME: not complete
         '''
-        #raise TypeError('parse a objcryst object is not reliable')
+        # raise TypeError('parse a objcryst object is not reliable')
         stru = self.rawstru if stru == None else stru
-        
+
         n = stru.GetNbScatterer()
         self.n = n
-        
+
         lat = stru.GetLatticePar()
         self.lat = [lat[0], lat[1], lat[2], np.degrees(lat[3]), np.degrees(lat[4]), np.degrees(lat[5])]
         self.element = []
@@ -198,17 +199,17 @@ class StructureExt(object):
                               [st.B12, st.B22, st.B12],
                               [st.B13, st.B12, st.B33]])
             biso = st.Biso
-            if bij_c.sum()<1.0e-10:
+            if bij_c.sum() < 1.0e-10:
                 self.anisotropy.append(False)
-                self.uij_c.append(biso/np.pi**2/8*np.identity(3))
+                self.uij_c.append(biso / np.pi ** 2 / 8 * np.identity(3))
             else:
                 self.anisotropy.append(True)
-                self.uij_c.append(bij_c/np.pi**2/8)
-                
+                self.uij_c.append(bij_c / np.pi ** 2 / 8)
+
         self.xyz = np.array(self.xyz)
         self.occ = np.array(self.occ)
         self.uij_c = np.array(self.uij_c)
-        
+
         sstru = self.convertDiffpyStru('xyz')
         self.parseDiffpyStru(sstru)
         return
@@ -319,32 +320,32 @@ class StructureExt(object):
                 a.Occupancy = self.occ[i]
             rv = m
         return self.addProp(rv)
-    
+
     def superCell(self, mno, stru=None, replace=False):
         from diffpy.Structure.expansion import supercell
         if stru == None:
             stru = self.convertDiffpyStru('xyz')
             newstru = supercell(stru, mno)
-            
+
         if replace:
             self.rawstru = newstru
             self.rawstype = 'diffpy'
             self.parseDiffpyStru(newstru)
         return self.addProp(newstru)
-        
+
 if __name__ == '__main__':
     stru = StructureExt()
     stru.loadStrufile('CdS.cif', 'diffpy', periodic=True)
-    #stru.loadStrufile('fitresult/test1/m.cif', 'objcryst', False)
-    #stru.loadStrufile('cd35se20.xyz', 'diffpy', periodic=False)
+    # stru.loadStrufile('fitresult/test1/m.cif', 'objcryst', False)
+    # stru.loadStrufile('cd35se20.xyz', 'diffpy', periodic=False)
     stru.parseDiffpyStru()
-    #stru.parseObjcrystStru()
-    stru.superCell([10,10,10], replace=True)
+    # stru.parseObjcrystStru()
+    stru.superCell([10, 10, 10], replace=True)
 
     a = stru.convertPeriodicStru('xyz')
-    #b = stru.convertDiffpyStru('xyz')
-    #c = stru.convertObjcrystStru('xyz_c')
-    #d = stru.superCell([5,5,5])
+    # b = stru.convertDiffpyStru('xyz')
+    # c = stru.convertObjcrystStru('xyz_c')
+    # d = stru.superCell([5,5,5])
     # stru.exportStru('test.stru', 'pdb', 'diffpy')
     pass
 
@@ -358,9 +359,9 @@ if __name__ == '__main__':
     r1, g1 = pc1(a)
     plot(r1, g1)
 
-    #r2, g2 = pc1(b)
-    #plot(r2, g2)
+    # r2, g2 = pc1(b)
+    # plot(r2, g2)
 
-    #r3, g3 = pc1(c)
-    #plot(r3, g3)
+    # r3, g3 = pc1(c)
+    # plot(r3, g3)
     show()

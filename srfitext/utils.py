@@ -9,7 +9,7 @@ from diffpy.srfit.structure.objcrystparset import ObjCrystAtomParSet, ObjCrystMo
 from diffpy.srfit.structure.diffpyparset import DiffpyAtomParSet
 
 from srfitext.structure import StructureExt
-
+import deap
 import argparse
 import numpy as np
 import os
@@ -117,6 +117,9 @@ def saveStruOutput(stru, path):
         f = file(path + '.cif' , 'w')
         stru.CIFOutput(f)
         f.close()
+    elif isinstance(stru, ObjcrystMolecule):
+        ss = stru.parent.convertDiffpyStru('xyz_c')
+        ss.write(path + '.cif', 'cif')
     elif isinstance(stru, StructureExt):
         stru.convertDiffpyStru('xyz_c').write(path + '.cif', 'cif')
 
@@ -156,19 +159,21 @@ def parseRefineStep(refineargs):
 ############################################################
 # converter between list and array
 ############################################################
-def reshapeArray(shape):
-
+def reshapeArray(shape, copy=False):
     def reshapeA(a):
         rv = a.reshape(shape)
         return rv
-    return reshapeA
+    def reshapeAc(a):
+        rv = a.reshape(shape)
+        return np.array(rv)
+    return reshapeAc if copy else reshapeA
 
 class PConverter(object):
     '''
     convert p between list and 1D array
     '''
 
-    def __init__(self, recipe):
+    def __init__(self, recipe, copy=False):
         self.names = recipe.names
         self.values = recipe.values
 
@@ -184,7 +189,7 @@ class PConverter(object):
             elif isinstance(v, (np.ndarray)):
                 ss = map(int, v.shape)
                 ni = v.ravel().shape[0]
-                self.cdict[n] = reshapeArray(ss)
+                self.cdict[n] = reshapeArray(ss, copy=copy)
                 self.lens[n] = [curind, curind + ni]
                 curind += ni
         return
