@@ -80,8 +80,6 @@ class FitRecipeExt(FitRecipe):
         if len(p) != self.pn and (p != []):
             p = self.pconverter.toList(p)
 
-        p1 = p[2]
-
         # Prepare, if necessary
         self._prepare()
 
