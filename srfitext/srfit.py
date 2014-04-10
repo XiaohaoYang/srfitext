@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 from diffpy.srfit.fitbase import FitContribution, FitRecipe, FitResults, Profile
 from diffpy.srfit.structure.diffpyparset import DiffpyStructureParSet
-from diffpy.srfit.structure.objcrystparset import ObjCrystCrystalParSet
+from diffpy.srfit.structure.objcrystparset import ObjCrystCrystalParSet, ObjCrystAtomParSet
 
 from srfitext.structure import StructureExt
 from srfitext.contribution import PDFContributionExt
@@ -41,6 +41,7 @@ class BaseSrfitExt(object):
 
     # custom flag
     plotresult = True
+    optimizedcalc = False
 
     '''default bound and default bound scale, when a new variable is created, it
     will first try to find bounds in self.p0, then try self.defaultbounds, then
@@ -128,8 +129,9 @@ class BaseSrfitExt(object):
         sname = toList(self.sname if sname == None else sname)
         speriodic = toList(self.speriodic if speriodic == None else speriodic)
         sloadtype = toList(self.sloadtype if sloadtype == None else sloadtype)
+        stype = toList(self.stype)
         if (sloadtype == None) and (self.stype != None):
-            sloadtype = [s if s in ['diffpy', 'objcryst'] else 'diffpy' for s in self.stype]
+            sloadtype = [s if s in ['diffpy', 'objcryst'] else 'diffpy' for s in stype]
 
         if isinstance(stru[0], StructureExt):
             rv = stru
@@ -285,6 +287,14 @@ class BaseSrfitExt(object):
                         elif self.defaultboundscale.has_key(tagname):
                             blo, bhi = self.defaultboundscale[tagname]
                             varvalue = [value, blo * value, bhi * value]
+        if isinstance(varvalue[1], np.ndarray): 
+            ind = varvalue[1] == varvalue[2]
+            varvalue[1][ind] = varvalue[1][ind] + 0.1
+            varvalue[2][ind] = varvalue[2][ind] + 0.1 
+        else:
+            if varvalue[1] == varvalue[2]:
+                varvalue[1] = varvalue[1] - 0.01
+                varvalue[2] = varvalue[2] + 0.01
         return varvalue
 
     def addNewVar(self, varname, varvalue=None, varbound=None, tag=None, tags=[], p0first=False):
@@ -465,7 +475,7 @@ class BaseSrfitExt(object):
                 element = re.split('[^a-zA-Z]*', atom.element.title())[0]
                 for t in ['x', 'y', 'z']:
                     if t in parlist:
-                        tvalue = getattr(atom.atom, t)
+                        tvalue = getattr(atom, t).value
                         tname = '_'.join([element, t, str(atomn)])
                         self.assignNewVar(getattr(atom, t), tname, tvalue, tag=['xyz', element + '_xyz'])
                 atomn = atomn + 1
@@ -569,7 +579,18 @@ class BaseSrfitExt(object):
         for cont in contribution.values():
             cont.setCalculationRange(xmin=xmin, xmax=xmax, dx=dx)
         return
-
+    
+    def setOptimzedCalc(self, contribution=None, optimized=True):
+        '''
+        set pdf calculator to the FAST PDF calculator
+        '''
+        contribution = self.recipe._contributions if contribution == None else contribution
+        contribution = {contribution.name:contribution} if isinstance(contribution, (PDFContributionExt)) else contribution
+        for cont in contribution.values():
+            cont.setOptimized(optimized)
+        return
+            
+    
     def makeRecipe(self):
         recipe = FitRecipeExt()
         self.recipe = recipe

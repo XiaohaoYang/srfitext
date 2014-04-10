@@ -94,6 +94,13 @@ class PDFGeneratorExt(BasePDFGenerator):
             self._calc.qmin = qmin
         self.meta["qmin"] = self.getQmin()
         return
+    
+    def setOptimized(self, optimized=True):
+        if optimized:
+            self._calc.evaluatortype = 'OPTIMIZED'
+        else:
+            self._calc.evaluatortype = 'DEFAULT'
+        return
 
     def __call__(self, r):
         if r is not self._lastr:

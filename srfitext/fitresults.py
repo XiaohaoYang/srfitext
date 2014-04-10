@@ -2,7 +2,7 @@
 import numpy as np
 import numpy
 import os
-from diffpy.srfit.fitbase.fitresults import FitResults, ContributionResults
+from diffpy.srfit.fitbase.fitresults import FitResults, ContributionResults, ContributionResults
 import matplotlib.pyplot as plt
 
 class FitResultsExt(FitResults):
@@ -31,7 +31,7 @@ class FitResultsExt(FitResults):
         """Update the results according to the current state of the recipe."""
         self.n = len(self.recipe.getNames())
         self.hasarray = any([isinstance(x, np.ndarray) for x in self.recipe.getValues()])
-
+        
         if not self.hasarray:
             FitResults.update(self)
             # correct cov/std if all dy == 1
@@ -46,7 +46,17 @@ class FitResultsExt(FitResults):
                 self.conunc = [old * sqrtrchi2 for old in self.conunc]
                 for con in self.conresults.values():
                     con.conunc = [old * sqrtrchi2 for old in con.conunc]
-
+            
+            # convert array to NAN
+            self.varvals = [np.NAN if isinstance(v, np.ndarray) else v for v in self.varvals]
+            self.fixedvals = [np.NAN if isinstance(v, np.ndarray) else v for v in self.fixedvals]
+        else:
+            self.recipe._prepare()
+            res = self.recipe.residual()
+            self.residual = numpy.dot(res, res)
+            for con, weight in zip(self.recipe._contributions.values(), self.recipe._weights):
+                self.conresults[con.name] = ContributionResultsExt(con, weight, self)
+            self._calculateMetrics()
         return
 
 
@@ -72,6 +82,39 @@ class FitResultsExt(FitResults):
         if self.raw != None:
             f.write(str(self.raw))
         f.close()
+        return
+    
+class ContributionResultsExt(ContributionResults):
+    
+    def _init(self, con, weight, fitres):
+        """Initialize the attributes, for real."""
+        # # Note that the order of these operations is chosen to reduce
+        # # computation time.
+        if con.profile is None:
+            return
+        recipe = fitres.recipe
+        # Store the weight
+        self.weight = weight
+        # First the residual
+        res = con.residual()
+        self.residual = numpy.dot(res, res)
+        # The arrays
+        self.x = numpy.array(con.profile.x)
+        self.y = numpy.array(con.profile.y)
+        self.dy = numpy.array(con.profile.dy)
+        self.ycalc = numpy.array(con.profile.ycalc)
+        # The other metrics
+        self._calculateMetrics()
+        # Find the parameters
+        if len(recipe._oconstraints) == len(fitres.convals):
+            for i, constraint in enumerate(recipe._oconstraints):
+                par = constraint.par
+                loc = con._locateManagedObject(par)
+                if loc:
+                    self.conlocs.append(loc)
+                    self.convals.append(fitres.convals[i])
+                    self.conunc.append(fitres.conunc[i])
+
         return
 
 def plotResults(recipe, filepath=None, clf=True, title='plot', show=False):

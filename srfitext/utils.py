@@ -14,6 +14,7 @@ import argparse
 import numpy as np
 import os
 import itertools
+import re
 
 ######################################################################
 
@@ -29,21 +30,23 @@ def getAtomsUsingExp(atoms, exp):
         rv = [atoms[i] for i in exp]
     elif exp == '':
         rv = []
+    elif exp == 'all':
+        rv = atoms
     else:
-        # replacestr = 'atom.' if type(atoms[0]) == Atom else 'atom.atom.'
-        # if no ele.xx
         if len(exp.split('.')) == 1:
-            if exp == 'all':
-                rv = atoms
-            else:  # 'example: Mn or Ti or Ba'
-                eles = exp.split(' or ')
-                ss = ['atom.element == "%s"' % ele for ele in eles]
-                expv = ' or '.join(ss)
-                rv = [atom for atom in atoms if eval(expv)]
+            # 'example: Mn or Ti or Ba'
+            eles = exp.split(' or ')
+            ss = ['atom.element == "%s"' % ele for ele in eles]
+            expv = ' or '.join(ss)
+            rv = [atom for atom in atoms if eval(expv)]
         else:  # ele.xx, only one element or 'all' is supported
             # get element
-            element = exp.split('.')[0]
-            expv = exp.replace(element + '.', 'atom.')
+            r = re.compile("[a-zA-Z]\w+\.\w+|all")
+            allexps = r.findall(exp)
+            element = allexps[0].split('.')[0]
+            replstr = lambda ss: 'atom.' + ss.split('.')[1] + '.value'
+            for rr in allexps:
+                expv = exp.replace(rr, replstr(rr))
             if element != 'all':
                 expv = '(%s) and (atom.element=="%s")' % (expv, element)
             rv = [atom for atom in atoms if eval(expv)]
@@ -207,7 +210,7 @@ class PConverter(object):
     def toArray(self, plist):
         rv = []
         for p in plist:
-            if isinstance(p, float):
+            if isinstance(p, (float, int)):
                 rv.append([p])
             elif isinstance(p, np.ndarray):
                 rv.append(p.ravel())

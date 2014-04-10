@@ -87,6 +87,12 @@ class PDFContributionExt(PDFContribution):
         for gen in self._generators.values():
             gen.parallel(parallel)
         return
+    
+    def setOptimized(self, optimized=True):
+        for gen in self._generators.values():
+            if isinstance(gen, PDFGeneratorExt):
+                gen.setOptimized(optimized)
+        return
 
     def setData(self, data):
         """Load the data in various formats.

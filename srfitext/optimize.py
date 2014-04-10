@@ -82,7 +82,7 @@ def optimizeExt(recipe, method='leastsq', plotstep=None, savestru='', *args, **k
 
 def scipyLeastsq(recipe, *args, **kwargs):
     from scipy.optimize import leastsq
-    print "Fit using scipy's LM optimizer"
+    print "Fit using scipy LM optimizer"
     leastsq_kwargs = {}
     if kwargs.has_key('maxiter'):
         leastsq_kwargs['maxfev'] = kwargs['maxiter']
