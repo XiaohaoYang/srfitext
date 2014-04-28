@@ -231,6 +231,20 @@ class FitRecipeExt(FitRecipe):
             fithook.postcall(self, chiv)
 
         return chiv
+    
+    def gradientScalarResidual(self, p=[]):
+        p0 = self.getValuesFlat() if p != [] else p
+        derivstep = 0.001
+        rv0 = self.scalarResidual(p0)
+        var = np.array(p0)
+        rv = []
+        for k, v in enumerate(var):
+            step = derivstep * 0.01 if v == 0 else derivstep * v 
+            p0[k] = v + step
+            rv1 = self.scalarResidual(p0)
+            rv.append((rv1 - rv0) / step)
+            p0[k] = v
+        return np.r_[rv]
 
     def fix(self, *args, **kw):
         FitRecipe.fix(self, *args, **kw)

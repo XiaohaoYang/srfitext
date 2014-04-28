@@ -20,7 +20,7 @@ from srfitext.gatools import cxTwoPointsCopy, wirtepop, uniform, mutPolynomialBo
 
 # imports for pymc
 import pymc
-from srfitext.mcmctools import MetropolisExt, sample, TbTrace
+from srfitext.mcmctools import MetropolisExt, sample, TbTrace, NUTS
 
 '''input the recipe, optimize, then return the refine result
     rv['x'] is refined parameters
@@ -335,9 +335,9 @@ def RMC(recipe, steps=50000, *args, **kwargs):
 # Bayesian
 ##########################################################
 
-def bayesian(recipe, steps=50000, S=None, *args, **kwargs):
+def bayesian(recipe, steps=50000, S=None, stepmethod='mertopolis', *args, **kwargs):
     # mcfunc: evaluate
-    # dmcfunc: evaluate differential
+    # dmcfunc: evaluate gradient
 
     names = recipe.names
     values = recipe.values
@@ -357,27 +357,44 @@ def bayesian(recipe, steps=50000, S=None, *args, **kwargs):
                 pymc.Uniform(names[i], lower=lb[i], upper=ub[i])
 
         start = dict(zip(names, values))
+        
         # determine the scale for proposal distribution
         if S == None:
             S = np.concatenate([[d[v.name] / 2] if isinstance(d[v.name], float) else d[v.name].ravel() / 2 for v in model.vars])
-        step = MetropolisExt(model.vars, S=S, tune_interval=10000)
-        # step.scaling = 0.5
+            
+        if stepmethod == 'metropolis':
+            step = MetropolisExt(model.vars, S=S, tune_interval=100000)
+        elif stepmethod == 'nuts':
+            step = NUTS(model.vars, scaling=S)
+        else:
+            raise ValueError('stepmethod should be either metropolis or nuts')
+        
         logp = step.fs[0]
         def logpMod(f):
             p = [float(f[n]) if f[n].shape == () else f[n] for n in names]
             return -recipe.scalarResidual(p) + logp(f)
-        # dlogp = step.fs[1]
-        # def dlogpMod(f):
-        #    return dmcfunc(f) + dlogp(f)
-
-        # step.ordering.vmap
-        step.fs = [logpMod]
-        # step.fs = [logpMod, dlogpMod]
+        
+        if stepmethod == 'nuts':
+            dlogp = step.fs[1]
+            '''def dlogpMod(f):
+                # p = [float(f[n]) if f[n].shape == () else f[n] for n in names]
+                # return -recipe.gradientScalarResidual(p) + dlogp(f)
+                return dlogp(f)'''
+            # step.ordering.vmap
+            step.fs = [logpMod, dlogp]
+        elif stepmethod == 'metropolis':
+            step.fs = [logpMod]
+        else:
+            raise ValueError('stepmethod should be either metropolis or nuts')
 
     # run sampler
     with model:
         trace = TbTrace(model.unobserved_RVs, **kwargs)
-        trace = sample(steps, step, start, trace=trace)
+        if kwargs.has_key('thin'):
+            thin = int(kwargs['thin'])
+        else:
+            thin = int(np.ceil(steps / 500000.0))
+        trace = sample(steps, step, start, trace=trace, thin=thin)
 
     # take mean as the output
     rv = []

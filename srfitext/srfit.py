@@ -587,7 +587,10 @@ class BaseSrfitExt(object):
         contribution = self.recipe._contributions if contribution == None else contribution
         contribution = {contribution.name:contribution} if isinstance(contribution, (PDFContributionExt)) else contribution
         for cont in contribution.values():
-            cont.setOptimized(optimized)
+            if optimized:
+                cont.setOptimized('OPTIMIZED')
+            else:
+                cont.setOptimized('BASIC')
         return
             
     
@@ -609,6 +612,7 @@ class BaseSrfitExt(object):
             self.processVar(generator, pvar)
 
         self.makeRecipeAdditional()
+        self.setOptimzedCalc(optimized=self.optimizedcalc)
         return recipe
 
     def makeRecipeAdditional(self):

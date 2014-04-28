@@ -50,12 +50,16 @@ class StructureExt(object):
         return
 
     def _getUiso(self):
-        rv = np.sum(self.uij_c, axis=(1, 2)) / 3
+        if self._uiso != None:
+            rv = self._uiso
+        else:
+            rv = np.sum(self.uij_c, axis=(1, 2)) / 3
         return rv
 
     def _setUiso(self, value):
         self.anisotropy = np.ones(self.n, dtype=bool)
         self.uij_c = value.reshape(value.shape[0], 1, 1) * np.identity(3).reshape(1, 3, 3)
+        self._uiso = value
         return
 
     uiso = property(_getUiso, _setUiso, "Uiso")

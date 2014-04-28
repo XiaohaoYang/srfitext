@@ -20,7 +20,7 @@ from pymc.core import modelcontext, Point
 #########################################################
 
 def sample(draws, step, start=None, trace=None, tune=None, progressbar=True, model=None,
-           random_seed=None, callback=None, recordinterval=1, **kwargs):
+           random_seed=None, callback=None, thin=1, **kwargs):
 
     progress = progress_bar(draws)
     try:
@@ -30,7 +30,7 @@ def sample(draws, step, start=None, trace=None, tune=None, progressbar=True, mod
                                               tune=tune,
                                               model=model,
                                               random_seed=random_seed,
-                                              recordinterval=recordinterval)):
+                                              thin=thin)):
             if progressbar:
                 progress.update(i)
                 if callback != None:
@@ -39,7 +39,7 @@ def sample(draws, step, start=None, trace=None, tune=None, progressbar=True, mod
         pass
     return trace
 
-def iter_sample(draws, step, start=None, trace=None, tune=None, model=None, random_seed=None, recordinterval=1):
+def iter_sample(draws, step, start=None, trace=None, tune=None, model=None, random_seed=None, thin=1):
     model = modelcontext(model)
     draws = int(draws)
     np.random.seed(random_seed)
@@ -74,7 +74,7 @@ def iter_sample(draws, step, start=None, trace=None, tune=None, model=None, rand
         if (i == tune):
             step = stop_tuning(step)
         point = step.step(point)
-        if i % recordinterval == 0:
+        if i % thin == 0:
             trace.record(point)
         yield trace
 
@@ -87,7 +87,7 @@ def argsample(args):
     return sample(*args)
 
 def psample(draws, step, start=None, trace=None, tune=None, progressbar=True,
-            model=None, threads=None, random_seeds=None, recordinterval=1):
+            model=None, threads=None, random_seeds=None, thin=1):
 
     model = modelcontext(model)
 
@@ -116,7 +116,7 @@ def psample(draws, step, start=None, trace=None, tune=None, progressbar=True,
 
     argset = zip([draws] * threads, [step] * threads, start, mtrace.traces,
                  [tune] * threads, pbars, [model] * threads, random_seeds,
-                 [recordinterval] * threads)
+                 [thin] * threads)
 
     traces = p.map(argsample, argset)
     p.close()
