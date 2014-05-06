@@ -335,7 +335,7 @@ def RMC(recipe, steps=50000, *args, **kwargs):
 # Bayesian
 ##########################################################
 
-def bayesian(recipe, steps=50000, S=None, stepmethod='mertopolis', *args, **kwargs):
+def bayesian(recipe, steps=50000, S=None, stepmethod='metropolis', expscale=1.0, *args, **kwargs):
     # mcfunc: evaluate
     # dmcfunc: evaluate gradient
 
@@ -370,9 +370,10 @@ def bayesian(recipe, steps=50000, S=None, stepmethod='mertopolis', *args, **kwar
             raise ValueError('stepmethod should be either metropolis or nuts')
         
         logp = step.fs[0]
+        print expscale
         def logpMod(f):
             p = [float(f[n]) if f[n].shape == () else f[n] for n in names]
-            return -recipe.scalarResidual(p) + logp(f)
+            return -recipe.scalarResidual(p) * expscale + logp(f)
         
         if stepmethod == 'nuts':
             dlogp = step.fs[1]

@@ -145,6 +145,7 @@ def plotResults(recipe, filepath=None, clf=True, title='plot', show=False):
         plt.legend(loc=1)
         if filepath != None:
             plt.savefig(os.path.join(filepath, contribution.name + '_fits.png'))
+            plt.savefig(os.path.join(filepath, contribution.name + '_fits.pdf'))
     if show:
         plt.show()
     return
