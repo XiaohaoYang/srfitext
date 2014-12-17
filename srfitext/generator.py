@@ -91,7 +91,7 @@ class PDFGeneratorExt(BasePDFGenerator):
         """Set the qmin value.
         """
         if self.periodic:
-            self._calc.qmin = qmin
+            self._calc.qmin = abs(qmin)
         self.meta["qmin"] = self.getQmin()
         return
     

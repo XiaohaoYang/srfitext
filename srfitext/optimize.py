@@ -121,7 +121,7 @@ def scipyFmin(recipe, method='BFGS', *args, **kwargs):
         fmin_kwargs['callback'] = kwargs['callback']
     # res = minimize(recipe.scalarResidual, recipe.getValues(), method=method, bounds=recipe.getBounds(), *args, **fmin_kwargs)
     res = minimize(recipe.scalarResidual, recipe.getValuesFlat(),
-                   method=method, bounds=recipe.getBoundsFlat(), *args, **fmin_kwargs)
+                   method=method, bounds=recipe.getBoundsFlat(), options=options, *args, **fmin_kwargs)
     return {'x': res['x'],
             'raw': res}
 
