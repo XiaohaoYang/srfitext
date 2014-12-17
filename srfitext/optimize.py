@@ -335,32 +335,57 @@ def RMC(recipe, steps=50000, *args, **kwargs):
 # Bayesian
 ##########################################################
 
-def bayesian(recipe, steps=50000, S=None, stepmethod='metropolis', expscale=1.0, *args, **kwargs):
+def bayesian(recipe, steps=50000, S=None, stepmethod='metropolis', expscale=1.0, distributions={}, *args, **kwargs):
     # mcfunc: evaluate
     # dmcfunc: evaluate gradient
 
     names = recipe.names
     values = recipe.values
     lb, ub = recipe.getBounds2()
-    d = {}
-    for i in range(len(values)):
-        d1 = values[i] - lb[i]
-        d2 = ub[i] - values[i]
-        d[names[i]] = np.minimum(d1, d2)
+    
+    dist = {}
+    for i, name in enumerate(names):
+        if not distributions.has_key(name):
+            rv = {}
+            rv['distribution'] = 'uniform'
+            rv['lower'] = lb[i]
+            rv['upper'] = ub[i]
+        else:
+            rv = distributions[name]
+            if not rv.has_key('Sproposal'):
+                if rv.has_key('sd'):
+                    rv['Sproposal'] = [rv['sd']]
+        # shape of distribution
+        if isinstance(values[i], np.ndarray):
+            rv['shape'] = values[i].shape
+        # scale for proposal
+        if not rv.has_key('Sproposal'):
+            temp = np.minimum(values[i] - lb[i], ub[i] - values[i])
+            rv['Sproposal'] = [temp / 2] if isinstance(temp, float) else temp.ravel() / 2
+        dist[name] = rv
 
     with pymc.Model() as model:
-        for i in range(len(names)):
-            if isinstance(values[i], np.ndarray):
-                shape = values[i].shape
-                pymc.Uniform(names[i], lower=lb[i], upper=ub[i], shape=shape)
+        for name in names:
+            dd = dist[name]
+            if dd['distribution'].lower() == 'uniform':
+                pymcdist = pymc.Uniform
+                print 'Uniform distribution assigned for %s' % name
+            elif dd['distribution'].lower() in ['gaussian', 'normal']:
+                pymcdist = pymc.Normal
+                print 'Normal distribution assigned for %s' % name
             else:
-                pymc.Uniform(names[i], lower=lb[i], upper=ub[i])
+                raise ValueError("distribution type error, currently only support uniform or gaussian")
+            
+            ddcopy = dd.copy()
+            for n in ['distribution', 'Sproposal']:
+                ddcopy.pop(n)
+            pymcdist(name, **ddcopy)
 
         start = dict(zip(names, values))
-        
         # determine the scale for proposal distribution
         if S == None:
-            S = np.concatenate([[d[v.name] / 2] if isinstance(d[v.name], float) else d[v.name].ravel() / 2 for v in model.vars])
+            # S = np.concatenate([[d[v.name] / 2] if isinstance(d[v.name], float) else d[v.name].ravel() / 2 for v in model.vars])
+            S = np.concatenate([dist[v.name]['Sproposal'] for v in model.vars])
             
         if stepmethod == 'metropolis':
             step = MetropolisExt(model.vars, S=S, tune_interval=100000)

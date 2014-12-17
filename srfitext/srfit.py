@@ -749,7 +749,7 @@ class BaseSrfitExt(object):
                     print "there are more than 25 vars, Bayesian plot are disabled"
         except:
             pass
-        return
+        return result.convals
 
 
 
