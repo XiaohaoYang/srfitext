@@ -44,7 +44,6 @@ class StructureExt(object):
 
         self._params = {}
         self._extparams = {}
-
         if filename != None:
             self.loadStrufile(filename, loadstype, periodic)
         return
@@ -69,7 +68,10 @@ class StructureExt(object):
         convert stru to stype
         '''
         if stype == 'diffpy':
-            rv = self.convertDiffpyStru(mode)
+            if self.rawstype == 'diffpy':
+                rv = self.addProp(self.rawstru)
+            else:
+                rv = self.convertDiffpyStru(mode)
         elif stype == 'periodic':
             rv = self.convertPeriodicStru(mode)
         elif stype == 'objcryst':
@@ -87,6 +89,7 @@ class StructureExt(object):
         '''
         read and parse a structure file
         '''
+        self.filename = filename
         ext = os.path.splitext(filename)[1]
 
         if periodic != None:

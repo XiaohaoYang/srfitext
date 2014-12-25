@@ -10,6 +10,7 @@ from diffpy.srfit.structure import struToParameterSet
 
 from srfitext.struparset import StructureExtParSet, ObjCrystMoleculeParSetExt
 from srfitext.structure import StructureExt
+from srfitext.calculator import DPDFCalculator
 from pyobjcryst._pyobjcryst import Molecule
 
 def fvarbkg(x, bkgslope):
@@ -26,6 +27,7 @@ class PDFGeneratorExt(BasePDFGenerator):
 
         """
         self.mode = mode
+        self.adele = None
         BasePDFGenerator.__init__(self, name)
         if mode == 'pdf':
             self._setCalculator(PDFCalculator())
@@ -58,7 +60,7 @@ class PDFGeneratorExt(BasePDFGenerator):
         periodic is determined according to stru if not specfied
         if self.periodic is not same as self.periodic then raise error
         """
-
+        self.stru = stru
         # Create the ParameterSet
         name = stru.name if name == None else name
         if stru.periodic == self.periodic:
@@ -101,6 +103,17 @@ class PDFGeneratorExt(BasePDFGenerator):
         else:
             self._calc.evaluatortype = 'DEFAULT'
         return
+    
+    def setAdele(self, adele, mode='ad', extlen=65536):
+        self.adele = adele
+        self._adcalc = DPDFCalculator(self._calc, adele, self.stru, mode, extlen)
+        return
+    
+    def _calculator(self, srrealstru):
+        if self.adele == None:
+            return self._calc(srrealstru)
+        else:
+            return self._adcalc(srrealstru)
 
     def __call__(self, r):
         if r is not self._lastr:
@@ -108,7 +121,7 @@ class PDFGeneratorExt(BasePDFGenerator):
 
         stru = self._phase.stru
 
-        rcalc, y = self._calc(self._phase._getSrRealStructure())
+        rcalc, y = self._calculator(self._phase._getSrRealStructure())
 
         if np.isnan(y).any():
             y = np.zeros_like(r)
