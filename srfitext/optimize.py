@@ -121,7 +121,8 @@ def scipyFmin(recipe, method='BFGS', *args, **kwargs):
         fmin_kwargs['callback'] = kwargs['callback']
     # res = minimize(recipe.scalarResidual, recipe.getValues(), method=method, bounds=recipe.getBounds(), *args, **fmin_kwargs)
     res = minimize(recipe.scalarResidual, recipe.getValuesFlat(),
-                   method=method, bounds=recipe.getBoundsFlat(), options=options, *args, **fmin_kwargs)
+                   # method=method, bounds=recipe.getBoundsFlat(), options=options, *args, **fmin_kwargs)
+                   method=method, bounds=recipe.getBoundsFlat(), *args, **fmin_kwargs)
     return {'x': res['x'],
             'raw': res}
 
@@ -335,7 +336,7 @@ def RMC(recipe, steps=50000, *args, **kwargs):
 # Bayesian
 ##########################################################
 
-def bayesian(recipe, steps=50000, S=None, stepmethod='metropolis', expscale=1.0, distributions={}, *args, **kwargs):
+def bayesian(recipe, steps=2000000, S=None, stepmethod='metropolis', expscale=1.0, distributions={}, *args, **kwargs):
     # mcfunc: evaluate
     # dmcfunc: evaluate gradient
 
@@ -427,6 +428,7 @@ def bayesian(recipe, steps=50000, S=None, stepmethod='metropolis', expscale=1.0,
     for n in names:
         rv.append(np.mean(trace[n], axis=0))
     rv = recipe.pconverter.toArray(rv)
+    trace.flush()
 
     return {'x': rv,
             'raw': trace

@@ -17,9 +17,10 @@ class PDFContributionExt(PDFContribution):
     _params = {}
     _extparams = {}
 
-    def __init__(self, name):
+    def __init__(self, name, weight=1.0):
         '''Create the NPContribution.
         '''
+        self.weight = weight
         super(PDFContributionExt, self).__init__(name)
         # qmax and qmin
         self.newParameter("qmin", 1.0)
@@ -53,6 +54,21 @@ class PDFContributionExt(PDFContribution):
             gen.parallel(parallel)
         self._setupGenerator(gen)
 
+        return gen.phase
+    
+    def addPhase(self, parset, name, periodic, mode=None, parallel=1):
+        if mode == None:
+            if periodic:
+                mode = 'pdf'
+            else:
+                mode = 'debye'
+        # Based on periodic, create the proper generator.
+        gen = PDFGeneratorExt(name, mode)
+        # Set up the generator
+        gen.setPhase(parset, periodic)
+        if parallel > 1:
+            gen.parallel(parallel)
+        self._setupGenerator(gen)
         return gen.phase
 
     def _setupGenerator(self, gen):

@@ -2,6 +2,7 @@
 import numpy as np
 import itertools
 import re, fnmatch, os
+import sys
 import matplotlib.pyplot as plt
 
 from diffpy.srfit.fitbase import FitContribution, FitRecipe, FitResults, Profile
@@ -48,7 +49,7 @@ class BaseSrfitExt(object):
     try self.defaultboundscale, which will generate bounds by multiple the 
     value of variable by scale value in self.defaultboundscale
     '''
-    defaultboundscale = dict({'lat': [0.95, 1.05],
+    defaultboundscale = dict({'lat': [0.90, 1.10],
                               'adp': [0.0, 10.0],
                               'xyz': [0.9, 1.1],
                               'scale': [0.0, 10.0],
@@ -138,19 +139,21 @@ class BaseSrfitExt(object):
         else:
             if sname == None:
                 sname = [os.path.splitext(os.path.basename(ss))[0] for ss in stru]
+                self.sname = sname
             if speriodic == None:
                 speriodic = [ss.endswith('.cif') for ss in stru]
+                self.speriodic = speriodic
             if sloadtype == None:
                 sloadtype = ['diffpy' if p else 'objcryst' for p in speriodic]
+                self.sloadtype = sloadtype
                 # loadstype = ['diffpy'] * len(name)
             rv = []
-            for sfile, ssname, ssloadtype, ssperiodic in zip(stru, sname, sloadtype, speriodic):
+            for sfile, ssname, ssloadtype, ssperiodic in itertools.izip(stru, sname, sloadtype, speriodic):
                 tt = StructureExt(name=ssname, filename=sfile, loadstype=ssloadtype, periodic=ssperiodic)
                 rv.append(tt)
         # rv = self.getStruAdditional(rv)
         self.struext = rv
         return rv
-
 
     def genStru(self, stru=None, stype=None):
         '''convert the StructureExt to diffpy or objcryst
@@ -169,9 +172,10 @@ class BaseSrfitExt(object):
 
         if stype == None:
             stype = [s.rawstype for s in stru]
+            self.stype = stype
 
         rv = []
-        for s, st in zip(stru, stype):
+        for s, st in itertools.izip(stru, stype):
             tt = s.convertStru(st)
             rv.append(tt)
         return rv
@@ -179,7 +183,7 @@ class BaseSrfitExt(object):
     '''def getStruAdditional(self, strulist):
         return strulist'''
 
-    def setData(self, data, contribution=None):
+    def setData(self, data, contribution):
         '''set the profile of contribution
         
         param contribution: NPPDFContribution, or str, 
@@ -199,7 +203,7 @@ class BaseSrfitExt(object):
         cont.setData(data)
         return
 
-    def genContribution(self, name, data, strulist):
+    def genContribution(self, name, data, strulist, weight=1.0):
         '''generate a pdf contribution, set the scale of each phase
         
         param name: string, name of contribution
@@ -207,10 +211,9 @@ class BaseSrfitExt(object):
         param strulist: list of structure,
             if list of stru is provided, then scale is automatically assigned to each phase, with summation=1
             name of scale will be 'scale_'+'name of stru'
-        '''
-
-        recipe = self.recipe
-        contribution = PDFContributionExt(name)
+        :return: list of contributions, weight'''
+        
+        contribution = PDFContributionExt(name, weight)
         contribution.setData(data)
         self.setCalculationRange(contribution)
 
@@ -240,7 +243,7 @@ class BaseSrfitExt(object):
                 scalelist.append(scale)
             totalscale = sum(scalelist)
             reducedscale = [ss / totalscale for ss in scalelist]
-            for struname, scalename, rscale in zip(strunamelist[:-1], scalenamelist[:-1], reducedscale[:-1]):
+            for struname, scalename, rscale in itertools.izip(strunamelist[:-1], scalenamelist[:-1], reducedscale[:-1]):
                 self.addNewVar(scalename, rscale, [0.0, 1.0], tags=['scale', 'phaseratio'])
                 recipe.constrain(getattr(contribution, struname).scale, 'abs(' + scalename + ') % 1.0')
                 # recipe.constrain(getattr(contribution, struname).scale, scalename)
@@ -249,7 +252,7 @@ class BaseSrfitExt(object):
             recipe.constrain(getattr(contribution, struname).scale, '1 - abs(' + ') % 1.0 - abs('.join(scalenamelist[:-1]) + ') % 1.0')
             # recipe.constrain(getattr(contribution, struname).scale, '1 -'+' - '.join(scalenamelist[:-1]))
         return contribution
-
+    
 
     def getValue(self, varname, varvalue=None, varbound=None, tag=None, tags=[], p0first=False):
         '''get value and boundary of var
@@ -603,13 +606,12 @@ class BaseSrfitExt(object):
         strulist = self.genStru(struextlist)
         self.strulist = strulist
         contribution = self.genContribution(self.name, self.data, strulist)
-        recipe.addContribution(contribution)
-
+        recipe.addContribution(contribution, contribution.weight)
+        
         for par in ['qdamp', 'qbroad', 'scale', 'qmin', 'qmax']:
             self.assignNewVar(getattr(contribution, par), par)
-
-        for pvar in self.pvarlist:
-            self.processVar(generator, pvar)
+        # for pvar in self.pvarlist:
+        #    self.processVar(generator, pvar)
 
         self.makeRecipeAdditional()
         self.setOptimzedCalc(optimized=self.optimizedcalc)
@@ -736,12 +738,14 @@ class BaseSrfitExt(object):
         # Save the fits results
         result.saveResults(os.path.join(filepath, savename + '.res'))
         # Plot
-        plotResults(recipe, filepath=filepath, title='Rw=%f' % result.rw, show=self.plotresult)
+        # plotResults(recipe, filepath=filepath, title='Rw=%f' % result.rw, show=self.plotresult)
+        plotResults(recipe, filepath=filepath, show=self.plotresult)
         # save the bayesian plots if necessary
         try:
             from srfitext.mcmctools import TbTrace
             if isinstance(self.rawresults['raw'], TbTrace):
                 trace = self.rawresults['raw']
+                os.system('cp %s %s' % (trace.dbfile.filename, os.path.join(filepath, trace.dbfile.filename)))
                 if len(trace.varnames) < 25:
                     bayesianPlot(self.rawresults['raw'], filepath=filepath,
                                  show=self.plotresult, shrink=10, burnout=0)

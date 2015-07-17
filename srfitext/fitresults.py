@@ -117,7 +117,7 @@ class ContributionResultsExt(ContributionResults):
 
         return
 
-def plotResults(recipe, filepath=None, clf=True, title='plot', show=False):
+def plotResults(recipe, filepath=None, clf=True, title=None, show=False):
     """Plot the results contained within a refined FitRecipe."""
 
     # All this should be pretty familiar by now.
@@ -131,7 +131,7 @@ def plotResults(recipe, filepath=None, clf=True, title='plot', show=False):
         diffzero = -0.8 * max(g) * np.ones_like(g)
         diff = g - gcalc + diffzero
 
-        plt.figure(i)
+        plt.figure(contribution.name)
         if clf:
             plt.clf()
         i = i + 1
@@ -141,7 +141,9 @@ def plotResults(recipe, filepath=None, clf=True, title='plot', show=False):
         plt.plot(r, diffzero, 'k-')
         plt.xlabel("$r (\AA)$")
         plt.ylabel("$G (\AA^{-2})$")
-        plt.title(title)
+        if title == None:
+            rw = (np.sum((g - gcalc) ** 2) / np.sum(g ** 2)) ** 0.5
+            plt.title('Rw = %0.3f' % rw)
         plt.legend(loc=1)
         if filepath != None:
             plt.savefig(os.path.join(filepath, contribution.name + '_fits.png'))
@@ -161,7 +163,7 @@ def bayesianPlot(trace, filepath, show=False, shrink=1, burnout=0):
         plt.clf()
         plt.title(varn)
         plt.hist(data, bins=30, normed=True)
-        plt.ylabel('Frequency')
+        plt.ylabel('Probability')
         plt.savefig(os.path.join(filepath, varn + '.png'))
     if show:
         plt.show()

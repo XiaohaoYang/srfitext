@@ -1,4 +1,5 @@
 import numpy as np
+import itertools
 
 from diffpy.srreal.pdfcalculator import makePDFBaseline, PDFBaseline, PDFCalculator, DebyePDFCalculator
 from diffpy.Structure import loadStructure
@@ -8,19 +9,19 @@ class DPDFCalculator(object):
     '''
     calculate the differential PDF
     '''
-    def __init__(self, calc, adele, stru, mode='ad', extlen=65536):
+    def __init__(self, calc, adele, stru, dPDFmode='ad', extlen=65536):
         self.calc = calc
-        self.setAdStru(adele, stru, mode)
+        self.setAdStru(adele, stru, dPDFmode)
         self.extlen = extlen
         return
     
-    def setAdStru(self, adele, stru, mode='ad'):
+    def setAdStru(self, adele, stru, dPDFmode='ad'):
         '''
-        if mode == ad -> return the ad pdf
-        if mode == non-ad -> return the non-ad pdf
+        if dPDFmode == ad -> return the ad pdf
+        if dPDFmode == non_ad -> return the non_ad pdf
         '''
         self.adele = adele
-        self.mode = mode
+        self.dPDFmode = dPDFmode
         self.periodic = stru.periodic
         s = loadStructure(stru.parent.filename)
         self.elements = list(set(s.element))
@@ -50,26 +51,36 @@ class DPDFCalculator(object):
         calculate the dPDF, for PDFCalc, use a fft filter to remove the weird background
         for DebyePDFCalc, directly return the background
         '''
-        self.calc.rmax = 50.0
-        if self.mode == 'non-ad':
+        if self.dPDFmode == 'total':
             self.calc.setTypeMask('all', 'all', True)
-            r, gr_total = self._getGr(srrealstru)
+            return self.calc(srrealstru)
         
-        self.calc.setTypeMask('all', 'all', False)
-        self.calc.setTypeMask(self.adele, 'all', True)
-        r, gr_ad_all = self._getGr(srrealstru)
+        self.calc.rmax = 50.0
+        a = self.adele
+        gr_ad = np.zeros_like(self.calc.rgrid)
         
-        self.calc.setTypeMask('all', 'all', False)
-        self.calc.setTypeMask(self.adele, self.adele, True)
-        r, gr_ad_ad = self._getGr(srrealstru)
-        gr_ad = (gr_ad_all + gr_ad_all) / 2
-        gr_ad = gr_ad / self.adw
+        if self.dPDFmode == 'non_ad':
+            self.calc.setTypeMask('all', 'all', True)
+            r, gr_total = self._getGr(srrealstru) 
         
-        if self.mode == 'non-ad':
-            gr_non_ad = (gr_total - gr_ad * self.adw) / (1 - self.adw)
-            return r, gr_non_ad
-        else:
+        for b in self.elements:
+            self.calc.setTypeMask('all', 'all', False)
+            self.calc.setTypeMask(a, b, True)
+            r, gr = self._getGr(srrealstru)
+            weight = self.c[a] * self.c[b] * self.f[a][0] * self.f[b][0] / (self.f['total'][0] ** 2)
+            gr = gr / weight
+            if a != b:
+                gr = gr / 2.0 
+            gr_ad += gr * self.c[b] * self.f[b][0] / self.f['total'][0]
+        
+        if self.dPDFmode == 'non_ad':
+            weight = self.c[a] * self.f[a][0] / self.f['total'][0]
+            gr_nonad = (gr_total - gr_ad * weight) / (1 - weight)
+            return r, gr_nonad
+        elif self.dPDFmode == 'ad':
             return r, gr_ad
+        else:
+            raise ValueError('dPDFmode should be ad, non-ad, or total')
         
     def _getGr(self, srrealstru):
         '''

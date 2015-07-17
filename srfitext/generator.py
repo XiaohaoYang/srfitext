@@ -27,7 +27,7 @@ class PDFGeneratorExt(BasePDFGenerator):
 
         """
         self.mode = mode
-        self.adele = None
+        self.dPDFmode = None
         BasePDFGenerator.__init__(self, name)
         if mode == 'pdf':
             self._setCalculator(PDFCalculator())
@@ -104,31 +104,28 @@ class PDFGeneratorExt(BasePDFGenerator):
             self._calc.evaluatortype = 'DEFAULT'
         return
     
-    def setAdele(self, adele, mode='ad', extlen=65536):
+    def setAdele(self, adele, dPDFmode='total', extlen=65536):
         self.adele = adele
-        self._adcalc = DPDFCalculator(self._calc, adele, self.stru, mode, extlen)
+        self.dPDFmode = dPDFmode
+        self._adcalc = DPDFCalculator(self._calc, adele, self.stru, dPDFmode, extlen)
         return
     
-    def _calculator(self, srrealstru):
-        if self.adele == None:
-            return self._calc(srrealstru)
-        else:
-            return self._adcalc(srrealstru)
-
     def __call__(self, r):
         if r is not self._lastr:
             self._prepare(r)
 
         stru = self._phase.stru
-
-        rcalc, y = self._calculator(self._phase._getSrRealStructure())
+        
+        if self.dPDFmode == None:
+            rcalc, y = self._calc(self._phase._getSrRealStructure())
+        else:
+            rcalc, y = self._adcalc(self._phase._getSrRealStructure())
 
         if np.isnan(y).any():
             y = np.zeros_like(r)
         else:
             y = np.interp(r, rcalc, y)
         return y
-
 
 class GrGenerator(ProfileGenerator):
     '''genertor for scaling PDF
