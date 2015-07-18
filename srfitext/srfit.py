@@ -21,13 +21,6 @@ from srfitext.utils import parseRefineStep, resetUiso, getAtomsUsingExp, \
         checkADPUnConstrained, getElement, saveStruOutput
 from srfitext.optimize import optimizeExt
 
-def toList(ll):
-    if ll == None:
-        rv = None
-    else:
-        rv = ll if type(ll) == list else [ll]
-    return rv
-
 class BaseSrfitExt(object):
     '''class that organize the srfit recipe
     '''
@@ -41,6 +34,7 @@ class BaseSrfitExt(object):
     name = 'Base'
 
     # custom flag
+    addname = True
     plotresult = True
     optimizedcalc = False
 
@@ -50,17 +44,17 @@ class BaseSrfitExt(object):
     value of variable by scale value in self.defaultboundscale
     '''
     defaultboundscale = dict({'lat': [0.90, 1.10],
-                              'adp': [0.0, 10.0],
+                              'adp': [0.1, 10.0],
                               'xyz': [0.9, 1.1],
-                              'scale': [0.0, 10.0],
-                              'other': [0.0, 10.0]
+                              'scale': [0.1, 10.0],
+                              'other': [0.1, 10.0]
                               })
-    defaultbounds = dict({'qdamp': [0.0, 0.1],
-                          'delta2': [0.0, 10.0],
-                          'delta1': [0.0, 5.0],
-                          'qbroad': [0.0, 0.1],
-                          'phaseratio': [0.0, 1.0],
-                          'occ': [0.0, 2.0],
+    defaultbounds = dict({'qdamp': [0.06, 0.0, 0.1],
+                          'delta2': [5.0, 0.0, 10.0],
+                          'delta1': [0.0, 0.0, 5.0],
+                          'qbroad': [0.0, 0.0, 0.1],
+                          'phaseratio': [1.0, 0.0, 1.0],
+                          'occ': [1.0, 0.0, 2.0],
                           })
     # list of pvar, configurations for variables
     pvarlist = []
@@ -79,18 +73,13 @@ class BaseSrfitExt(object):
                   'xyz',
                   ]
 
-    def __init__(self, stru=None, sname=None, sloadtype=None, stype=None, speriodic=None,
-                 data=None, savepath=None, savename=None, **kwargs):
-        self.data = data
-        self.savepath = savepath if savepath != None else ''
+    def __init__(self, strudict=None, contdict=None, savepath=None, savename=None, **kwargs):
+        
+        self.savepath = savepath if savepath != None else '.'
         self.savename = savename if savename != None else self.name
-
-        self.struext = stru
-        self.sname = sname
-        self.sloadtype = sloadtype
-        self.stype = stype
-        self.speriodic = speriodic
-
+        
+        self.strudict = strudict
+        self.contdict = contdict
         self.recipe = None
 
         for key in kwargs.keys():
@@ -101,88 +90,178 @@ class BaseSrfitExt(object):
         self.adplist = self.adpUlist + self.adpBlist
         return
 
-    def loadStru(self, stru=None, sname=None, sloadtype=None, speriodic=None):
+    def loadStru(self, strudict=None):
         '''
-        load stru file into StructureExt object
+        load stru file, the config is provided in strudict
+        '''
+        strudict = strudict or self.strudict
+        self.struext = {}
+        self.stru = {}
+        strulist = []
+        struextlist = []
         
-        :param stru: 
-            if stru is StructureExt or list of structureExt, then this method will just 
-            return it. 
-            if stru is string or list of string, this method will process these 
-            strings as the filename of stru file. 
-        :param name: None or string or list of string
-            if None, the name of each stru will be the base name of stru file
-            if string or list of string (should be in same length of stru), then 
-            name of each stru will be assigned according to key value (name of list of name
-            should be different)
-        :param stype: None, or string or list of string, 
-            'diffpy' or 'objcryst', mode to load the stru file
-        :param periodic: None, or bool, or list of bool
-            if None, periodic of each stru is determined by filetype, 
-            '.cif'->True, others->False
-            if bool, of list of bool (should be in same length of stru), then 
-            periodic of each stru will be assigned according to this key value
-            
-        :return: list of StructureExt
-        '''
-        # get default stru from self.stru
-        stru = toList(self.struext if stru == None else stru)
-        sname = toList(self.sname if sname == None else sname)
-        speriodic = toList(self.speriodic if speriodic == None else speriodic)
-        sloadtype = toList(self.sloadtype if sloadtype == None else sloadtype)
-        stype = toList(self.stype)
-        if (sloadtype == None) and (self.stype != None):
-            sloadtype = [s if s in ['diffpy', 'objcryst'] else 'diffpy' for s in stype]
-
-        if isinstance(stru[0], StructureExt):
-            rv = stru
+        if isinstance(strudict, dict):
+            if strudict.has_key('name'):
+                # single stru dict
+                stru, struext = self._loadStru(strudict)
+                strulist.append(stru)
+                struextlist.append(struext)
+            else:
+                # dict of stru dict, key is the stru name
+                for name, sdict in strudict.iteritems():
+                    sdict['name'] = name
+                    stru, struext = self._loadStru(sdict)
+                    strulist.append(stru)
+                    struextlist.append(struext)
+        elif isinstance(strudict, list):
+            # list of stru dict, stru name in the dict
+            for sdict in strudict:
+                stru, struext = self._loadStru(sdict)
+                strulist.append(stru)
+                struextlist.append(struext)
         else:
-            if sname == None:
-                sname = [os.path.splitext(os.path.basename(ss))[0] for ss in stru]
-                self.sname = sname
-            if speriodic == None:
-                speriodic = [ss.endswith('.cif') for ss in stru]
-                self.speriodic = speriodic
-            if sloadtype == None:
-                sloadtype = ['diffpy' if p else 'objcryst' for p in speriodic]
-                self.sloadtype = sloadtype
-                # loadstype = ['diffpy'] * len(name)
-            rv = []
-            for sfile, ssname, ssloadtype, ssperiodic in itertools.izip(stru, sname, sloadtype, speriodic):
-                tt = StructureExt(name=ssname, filename=sfile, loadstype=ssloadtype, periodic=ssperiodic)
-                rv.append(tt)
-        # rv = self.getStruAdditional(rv)
-        self.struext = rv
-        return rv
-
-    def genStru(self, stru=None, stype=None):
-        '''convert the StructureExt to diffpy or objcryst
-        
-        :param stru: StructureExt or a list of StructureExt 
-        :param stype: String, 'diffpy' or 'objcryst'
-            if None, return the raw stru stored in StrutureExt, otherwise convert
-            to stype specified
-            
-        :return: list of stru (diffpy or objcryst)
+            pass
+            # raise ValueError('stru dict not right!!!')
+        return strulist, struextlist
+    
+    def _loadStru(self, strudict):
         '''
+        load stru file
+        '''
+        s = strudict
+        
+        sfile = s['file']
+        name = s.get('name', os.path.splitext(os.path.basename(sfile))[0])
+        periodic = s.get('periodic', sfile.endswith('.cif'))
+        stype = s.get('type', 'objcryst' if periodic else 'diffpy')
+        loadtype = s.get('loadtype', stype if stype in ('diffpy', 'objcryst') else 'diffpy')
+        optimized = s.get('optimized', False)
+        strukwargs = s.get('strukwargs', {})
+        
+        struext = StructureExt(name=name, filename=sfile, loadstype=loadtype, periodic=periodic, optimized=optimized, **strukwargs)
+        stru = struext.convertStru(stype)
+        
+        self.stru[name] = stru
+        self.struext[name] = struext
+        return stru, struext
+    
+    def GetStru(self, struraw):
+        '''
+        get the stru list
+        '''
+        if isinstance(struraw, list):
+            if isinstance(struraw[0], str):
+                return [self.stru[x] for x in struraw]
+            else:
+                strulist, struextlist = self.loadStru(struraw)
+                return strulist
+        else:
+            if isinstance(struraw, str):
+                return [self.stru[struraw]]
+            else:
+                strulist, struextlist = self.loadStru(struraw)
+                return strulist
 
-        # get default stru from self.stru
-        stru = toList(self.struext if stru == None else stru)
-        stype = toList(self.stype if stype == None else stype)
-
-        if stype == None:
-            stype = [s.rawstype for s in stru]
-            self.stype = stype
-
+    def genContribution(self, contdict):
+        '''
+        genearte pdf contribution, using contdict
+        '''
+        contdict = contdict or self.contdict
+        self.cont = {}
         rv = []
-        for s, st in itertools.izip(stru, stype):
-            tt = s.convertStru(st)
-            rv.append(tt)
+        
+        if isinstance(contdict, dict):
+            if contdict.has_key('name'):
+                # single cont dict
+                cont = self._genCont(contdict)
+                rv.append(cont)
+            else:
+                # dict of cont dict, key is the cont name
+                for name, cdict in contdict.iteritems():
+                    cdict['name'] = name
+                    cont = self._genCont(contdict)
+                    rv.append(cont)
+        elif isinstance(contdict, list):
+            # list of cont dict, cont name in the dict
+            for cdict in contdict:
+                cont = self._genCont(contdict)
+                rv.append(cont)
+        
         return rv
+    
+    def _genCont(self, cdict):
+        '''
+        generate contribution
+        '''
+        recipe = self.recipe
+        c = cdict
+        
+        # read meta data from dict
+        name = c['name']
+        data = c['data']
+        weight = c.get('weight', 1.0)
+        strulist = self.GetStru(c['stru'])
+        xrange = c.get('xrange', (self.xmin, self.xmax, self.dx))
+        share = c.get('share', ['qdamp', 'qbroad', 'scale', 'qmin', 'qmax'])  # qmin, qboard, qdamp
+        disable = c.get('disable', [])  # do not create var, delta1, delta2 
+        
+        # make cont
+        cont = PDFContributionExt(name, weight)
+        self.cont[name] = cont
+        cont.setData(data)
+        cont.setCalculationRange(xmin=xrange[0], xmax=xrange[1], dx=xrange[2])
+        
+        # add structures
+        for stru in strulist:
+            cont.addStructure(stru, parallel=self.parallel)
+        for stru in strulist:
+            gen = getattr(cont, stru.name)
+            self.addVar(gen.delta1, 'delta1_%s' % stru.name, tags=['delta1'])
+            self.addVar(gen.delta2, 'delta2_%s' % stru.name, tags=['delta2'])
+                
+        # assign the scale
+        if len(strulist) > 1:
+            scalenamelist = ['scale_%s' % stru.name for stru in strulist]
+            strunamelist = [stru.name for stru in strulist]
+            scalelist = [self.getValue(x)[0] for x in scalenamelist]
+            reducedscale = [ss / sum(scalelist) for ss in scalelist]
+            for struname, scalename, rscale in itertools.izip(strunamelist[:-1], scalenamelist[:-1], reducedscale[:-1]):
+                self.newVar(scalename, [rscale, 0.0, 1.0], tags=['scale', 'phaseratio'])
+                recipe.constrain(getattr(cont, struname).scale, 'abs(' + scalename + ') % 1.0')
+                # recipe.constrain(getattr(contribution, struname).scale, scalename)
+            struname = strulist[-1].name
+            recipe.constrain(getattr(cont, struname).scale, '1 - abs(' + ') % 1.0 - abs('.join(scalenamelist[:-1]) + ') % 1.0')
+            # recipe.constrain(getattr(contribution, struname).scale, '1 -'+' - '.join(scalenamelist[:-1]))
+        
+        # add cont to recipe
+        recipe.addContribution(cont, cont.weight)
+        
+        for par in share:
+            self.addVar(getattr(cont, par), par)
+        for par in ['qdamp', 'qbroad', 'scale', 'qmin', 'qmax']:
+            if par not in share:
+                self.assignNewVar(getattr(cont, par), par + '_' + cont.name)
+        return cont
+    
+    def makeRecipe(self):
+        recipe = FitRecipeExt()
+        cdict = self.contdict
+        self.recipe = recipe
+        recipe.fithooks[0].verbose = self.verbose
+        
+        if self.strudict:
+            self.loadStru(strudict)
+        conts = self.genContribution(self.contdict)
 
-    '''def getStruAdditional(self, strulist):
-        return strulist'''
+        self.makeRecipeAdditional()
+        self.processRestrain()
+        return recipe
 
+    def makeRecipeAdditional(self):
+        '''add some additional var, constrain to recipe, called in self.makerecipe
+        '''
+        return
+    
     def setData(self, data, contribution):
         '''set the profile of contribution
         
@@ -202,134 +281,62 @@ class BaseSrfitExt(object):
             cont = contribution
         cont.setData(data)
         return
-
-    def genContribution(self, name, data, strulist, weight=1.0):
-        '''generate a pdf contribution, set the scale of each phase
-        
-        param name: string, name of contribution
-        param data: string, or list of array, or 2D array, the pdf data to be fit
-        param strulist: list of structure,
-            if list of stru is provided, then scale is automatically assigned to each phase, with summation=1
-            name of scale will be 'scale_'+'name of stru'
-        :return: list of contributions, weight'''
-        
-        contribution = PDFContributionExt(name, weight)
-        contribution.setData(data)
-        self.setCalculationRange(contribution)
-
-        strulist = toList(strulist)
-        for stru in strulist:
-            contribution.addStructure(stru, parallel=self.parallel)
-
-        # assign the delta1 and delta2 to each stru
-        if len(strulist) > 1:
-            for stru in strulist:
-                gen = getattr(contribution, stru.name)
-                self.assignNewVar(gen.delta1, '%s_delta1' % stru.name, tag='delta1')
-                self.assignNewVar(gen.delta2, '%s_delta2' % stru.name, tag='delta2')
-        else:
-            gen = getattr(contribution, strulist[0].name)
-            self.assignNewVar(gen.delta1, 'delta1')
-            self.assignNewVar(gen.delta2, 'delta2')
-
-        # assign the scale
-        if len(strulist) > 1:
-            scalenamelist = ['scale_%s' % stru.name for stru in strulist]
-            strunamelist = [stru.name for stru in strulist]
-            # get scale information in p0
-            scalelist = []
-            for sn in scalenamelist:
-                scale = self.getValue(sn)[0] if self.p0.has_key(sn) else 1.0 / len(strulist)
-                scalelist.append(scale)
-            totalscale = sum(scalelist)
-            reducedscale = [ss / totalscale for ss in scalelist]
-            for struname, scalename, rscale in itertools.izip(strunamelist[:-1], scalenamelist[:-1], reducedscale[:-1]):
-                self.addNewVar(scalename, rscale, [0.0, 1.0], tags=['scale', 'phaseratio'])
-                recipe.constrain(getattr(contribution, struname).scale, 'abs(' + scalename + ') % 1.0')
-                # recipe.constrain(getattr(contribution, struname).scale, scalename)
-            # last scale constrained to 1-sum(other scale)
-            struname = strulist[-1].name
-            recipe.constrain(getattr(contribution, struname).scale, '1 - abs(' + ') % 1.0 - abs('.join(scalenamelist[:-1]) + ') % 1.0')
-            # recipe.constrain(getattr(contribution, struname).scale, '1 -'+' - '.join(scalenamelist[:-1]))
-        return contribution
     
-
-    def getValue(self, varname, varvalue=None, varbound=None, tag=None, tags=[], p0first=False):
+    def getValue(self, varname, varvalue=None, tag='all'):
         '''get value and boundary of var
-        value of var is determined in following order
-        varvalue>self.p0 
-        bound of var is determined in following order
-        (varvalue)>varbound>self.p0 > defaultbounds > defaultboundscale (varname > tag)
-        if p0first==True: try get value from p0 first
         
         return [value, lowbound, highbound]
         '''
         # get value from p0
-        if (varvalue == None) or p0first:
-            varvalue = self.p0[varname] if self.p0.has_key(varname) else varvalue
-
-        # get bounds
-        if type(varvalue) != list:
-            value = varvalue
-            if varbound != None:
-                varvalue = [value, varbound[0], varbound[1]]
+        if self.p0.has_key(varname):
+            return self.p0[varname]
+        else:
+            if varvalue is None:
+                if self.defaultbounds.has_key(tag):
+                    return self.defaultbounds[tag]
+                else:
+                    raise ValueError('Define var in p0 or provide varvalue')
             else:
-                tag = tag if type(tag) == list else [tag]
-                tagnames = [varname] + tag + tags + ['others']
-                varvalue = []
-                for tagname in tagnames:
-                    if varvalue == []:
-                        if self.p0.has_key(tagname):
-                            if type(self.p0[tagname]) == list:
-                                blo = self.p0[tagname][1]
-                                bhi = self.p0[tagname][2]
-                                varvalue = [value, blo, bhi]
-                        elif self.defaultbounds.has_key(tagname):
-                            blo, bhi = self.defaultbounds[tagname]
-                            varvalue = [value, blo, bhi]
-                        elif self.defaultboundscale.has_key(tagname):
-                            blo, bhi = self.defaultboundscale[tagname]
-                            varvalue = [value, blo * value, bhi * value]
-        if isinstance(varvalue[1], np.ndarray): 
-            ind = varvalue[1] == varvalue[2]
-            varvalue[1][ind] = varvalue[1][ind] + 0.1
-            varvalue[2][ind] = varvalue[2][ind] + 0.1 
-        else:
-            if varvalue[1] == varvalue[2]:
-                varvalue[1] = varvalue[1] - 0.01
-                varvalue[2] = varvalue[2] + 0.01
-        return varvalue
-
-    def addNewVar(self, varname, varvalue=None, varbound=None, tag=None, tags=[], p0first=False):
-        '''add new var to self.recipe
-        varvalue > self.p0
-        default tag is 'Others'
-        if p0first==True: try get value from p0 first
+                if isinstance(varvalue, (list, tuple)):
+                    return varvalue
+                else:
+                    if self.defaultbounds.has_key(tag):
+                        vl, vh = self.defaultbounds[tag]
+                    elif self.defaultboundscale.has_key(tag):
+                        vl, vh = self.defaultboundscale[tag]
+                        vl = vl * varvalue
+                        vh = vh * varvalue
+                    else:
+                        vl = varvalue * 0.8
+                        vh = varvalue * 1.2
+                    return (varvalue, vl, vh)
+                
+        
+                
+    def newVar(self, varname, varvalue=None, tags=['all']):
         '''
-        recipe = self.recipe
-        vv, varlo, varhi = self.getValue(varname, varvalue, varbound, tag, tags, p0first)
-        if type(tag) == list:
-            tags = tag + tags
-            tag = None
-        else:
-            tag = 'others' if (tag == None)and(tags == []) else tag
-        rv = recipe.newVar(varname, vv, tag=tag, tags=tags)
-        rv.bounds = [varlo, varhi]
+        add new var and constrain to var
+        '''
+        v, vl, vh = self.getValue(varname, varvalue, tags[0])
+        rv = self.recipe.newVar(varname, v, tags=tags)
+        rv.bounds = [vl, vh]
         return rv
-
-    def assignNewVar(self, var, varname, varvalue=None, varbound=None, tag=None, tags=[], abs=False, p0first=False):
-        '''assign new var default value is varvalue, if None, try find in self.p0
-        varvalue > self.p0
-        if p0first==True: try get value from p0 first
+        
+    
+    def addVar(self, par, varname, varvalue=None, tags=['all']):
         '''
-        recipe = self.recipe
-        self.addNewVar(varname, varvalue, varbound, tag, tags, p0first)
-        if abs:
-            recipe.constrain(var, 'abs(' + varname + ')')
-        else:
-            recipe.constrain(var, varname)
+        add new var to self.recipe
+        '''
+        v, vl, vh = self.getValue(varname, varvalue, tags[0])
+        rv = self.recipe.addVar(par, v, varname, tags=tags)
+        rv.bounds = [vl, vh]
+        return rv    
+    
+    def processRestrain(self):
+        for varname in self.r0.keys():
+            self.restrainVar(varname)
         return
-
+    
     def restrainVar(self, varname, restrain=None):
         # [lb, ub, sig, scaled]
         recipe = self.recipe
@@ -341,6 +348,8 @@ class BaseSrfitExt(object):
         elif len(rr) == 2:
             recipe.restrain(varname, lb=rr[0], ub=rr[1])
         return
+    
+    
 
     def constrainAsSpaceGroup(self, generator, spacegroup, lat=True, xyz=False, adp=False, addphasename=False):
         '''
@@ -373,24 +382,21 @@ class BaseSrfitExt(object):
             for par in sgpars.latpars:
                 parname = par.name
                 parname = phasename + '_' + parname if addphasename else parname
-                rv = self.addNewVar(parname, par.value, tag='lat', p0first=True)
-                recipe.constrain(par, parname)
+                self.addVar(par, parname, par.value, tags=['lat'])
         if xyz:
             for par in sgpars.xyzpars:
                 element = getElement(par.par.obj)
                 parname = '_'.join([element, par.name])
                 if addphasename:
                     parname = '_'.join([phasename, parname])
-                self.addNewVar(parname, par.value, tag=['xyz', element + '_xyz'], p0first=True)
-                recipe.constrain(par, parname)
+                self.addVar(par, parname, par.value, tags=['xyz', element + '_xyz'])
         if adp:
             for par in sgpars.adppars:
                 element = getElement(par.par.obj)
                 parname = '_'.join([element, par.name])
                 if addphasename:
                     parname = '_'.join([phasename, parname])
-                self.addNewVar(parname, par.value, tag=['adp', element + '_adp'], p0first=True)
-                recipe.constrain(par, parname)
+                self.addVar(par, parname, par.value, tags=['adp', element + '_adp'])
         return
 
     def processVar(self, generator, pvar):
@@ -444,14 +450,13 @@ class BaseSrfitExt(object):
         if pvar.has_key('var'):
             if pvar['var'].lower() != 'none':
                 value = pvar['value'] if pvar.has_key('value') else None
-                bound = pvar['bound'] if pvar.has_key('bound') else None
-                self.addNewVar(pvar['var'], value, bound, tag='occ')
+                self.newVar(pvar['var'], value, tags=['occ'])
         else:
             elements = list(set([atom.element for atom in atoms]))
             elements = map(lambda ele: re.split('[^a-zA-Z]*', ele)[0], elements)
             for ele in elements:
                 if ele + '_occ' not in recipe.names:
-                    self.addNewVar(ele + '_occ', tag='occ')
+                    self.newVar(ele + '_occ', tags=['occ'])
         for atom in atoms:
             if pvar.has_key('constrainto'):
                 recipe.constrain(atom.occ, pvar['constrainto'])
@@ -499,10 +504,9 @@ class BaseSrfitExt(object):
         recipe = self.recipe
         parlist = pvar['par']
         value = pvar['value'] if pvar.has_key('value') else None
-        bound = pvar['bound'] if pvar.has_key('bound') else None
         if pvar.has_key('var'):
             if pvar['var'].lower() != 'none':
-                self.addNewVar(pvar['var'], value, bound, tag='adp')
+                self.newVar(pvar['var'], value, tags=['adp'])
         else:
             elements = list(set([atom.element for atom in atoms]))
             elements = map(lambda ele: re.split('[^a-zA-Z]*', ele)[0], elements)
@@ -511,7 +515,7 @@ class BaseSrfitExt(object):
                 for ux in self.adplist:
                     if ux in parlist:
                         if not '_'.join([ele, ux]) in recipe.names:
-                            vv = self.addNewVar('_'.join([ele, ux]), value, bound, tag='adp')
+                            vv = self.newVar('_'.join([ele, ux]), value, tags=['adp', ele + '_adp'])
                             varlist.append(vv)
 
         if not (pvar.has_key('var') or pvar.has_key('constrainto')):
@@ -555,9 +559,7 @@ class BaseSrfitExt(object):
         recipe = self.recipe
         phase = generator._phase
         zname = 'zoomscale_' + generator.name
-        self.addNewVar(zname,
-                       varvalue=1.0, varbound=[0.0, 2.0],
-                       tag='scale', p0first=True)
+        self.newVar(zname, varvalue=[1.0, 0.0, 2.0], tags=['scale'])
         if isinstance(phase, DiffpyStructureParSet):
             lattice = generator._phase.getLattice()
             recipe.constrain(lattice.a, zname)
@@ -583,45 +585,6 @@ class BaseSrfitExt(object):
             cont.setCalculationRange(xmin=xmin, xmax=xmax, dx=dx)
         return
     
-    def setOptimzedCalc(self, contribution=None, optimized=True):
-        '''
-        set pdf calculator to the FAST PDF calculator
-        '''
-        contribution = self.recipe._contributions if contribution == None else contribution
-        contribution = {contribution.name:contribution} if isinstance(contribution, (PDFContributionExt)) else contribution
-        for cont in contribution.values():
-            if optimized:
-                cont.setOptimized('OPTIMIZED')
-            else:
-                cont.setOptimized('BASIC')
-        return
-            
-    
-    def makeRecipe(self):
-        recipe = FitRecipeExt()
-        self.recipe = recipe
-        recipe.fithooks[0].verbose = self.verbose
-
-        struextlist = self.loadStru(self.struext)
-        strulist = self.genStru(struextlist)
-        self.strulist = strulist
-        contribution = self.genContribution(self.name, self.data, strulist)
-        recipe.addContribution(contribution, contribution.weight)
-        
-        for par in ['qdamp', 'qbroad', 'scale', 'qmin', 'qmax']:
-            self.assignNewVar(getattr(contribution, par), par)
-        # for pvar in self.pvarlist:
-        #    self.processVar(generator, pvar)
-
-        self.makeRecipeAdditional()
-        self.setOptimzedCalc(optimized=self.optimizedcalc)
-        return recipe
-
-    def makeRecipeAdditional(self):
-        '''add some additional var, constrain to recipe, called in self.makerecipe
-        '''
-        return
-
     # optimize
     def setResidualMode(self, recipe=None, model=None, eq=None):
         '''set how to calculate the residual, also set the equation for each contribution in this recipe

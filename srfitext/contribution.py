@@ -31,7 +31,7 @@ class PDFContributionExt(PDFContribution):
 
     # Phase methods
 
-    def addStructure(self, stru, name=None, mode=None, parallel=1):
+    def addStructure(self, stru, name=None, mode=None, parallel=2):
         ''''Add a phase that goes into the PDF calculation.
         name of generator and periodic is determined according to stru if not specfied
         mode is either 'pdf' or 'debye'
@@ -53,7 +53,7 @@ class PDFContributionExt(PDFContribution):
         if parallel > 1:
             gen.parallel(parallel)
         self._setupGenerator(gen)
-
+        gen.setOptimized(stru.optimized)
         return gen.phase
     
     def addPhase(self, parset, name, periodic, mode=None, parallel=1):
@@ -96,20 +96,8 @@ class PDFContributionExt(PDFContribution):
         if gen.mode == 'debye':
             self.constrain(gen.qmin, self.qmin)
         return
-
-    def setParallel(self, parallel=2):
-        '''set number of cpus in parallel calculation
-        '''
-        for gen in self._generators.values():
-            gen.parallel(parallel)
-        return
     
-    def setOptimized(self, optimized=True):
-        for gen in self._generators.values():
-            if isinstance(gen, PDFGeneratorExt):
-                gen.setOptimized(optimized)
-        return
-
+    # FIXME
     def setData(self, data):
         """Load the data in various formats.
 

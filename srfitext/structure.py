@@ -24,12 +24,13 @@ class StructureExt(object):
     _params = None
     _extparams = None
 
-    def __init__(self, name='stru', filename=None, loadstype=None, periodic=None):
+    def __init__(self, name='stru', filename=None, loadstype=None, periodic=None, optimizied=False, **kwargs):
         self.name = name
         self.rawstru = None
         self.rawstype = None
         self.stru = None
         self.periodic = periodic
+        self.optimized = optimizied
 
         self.n = None
         self.element = None
@@ -44,6 +45,9 @@ class StructureExt(object):
 
         self._params = {}
         self._extparams = {}
+        for k, v in kwargs.iteritems():
+            setattr(self, k, v)
+        
         if filename != None:
             self.loadStrufile(filename, loadstype, periodic)
         return
@@ -145,11 +149,9 @@ class StructureExt(object):
         '''
         add properties to the stru
         '''
+        for par in ['name', '_params', '_extparams', 'periodic', 'optimized']:
+            setattr(stru, par, getattr(self, par))
         stru.title = self.name
-        stru.name = self.name
-        stru._params = self._params
-        stru._extparams = self._extparams
-        stru.periodic = self.periodic
         stru.parent = self
         return stru
 

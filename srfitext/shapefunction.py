@@ -106,9 +106,7 @@ def assignShapeFunction(recipe, contribution, generator, shape, appendstr=''):
     varlist = func.func_code.co_varnames[1:func.func_code.co_argcount]
     for varname in varlist:
         varobj = getattr(contribution, varname)
-        recipe.assignNewVar(varobj, varname + appendstr,
-                            varvalue=funcdata[varname],
-                            tag='shape', p0first=True)
+        recipe.addVar(varobj, varname + appendstr, varvalue=funcdata[varname], tags=['shape'])
     return
 
 _sasShapeFunctionMeta = \
@@ -384,7 +382,5 @@ def assignSASShapeFunction(recipe, contribution, generator, shape, appendstr):
     varlist.remove('name')
     for varname in varlist:
         varobj = getattr(cfcalculator, varname)
-        recipe.assignNewVar(varobj, varname + appendstr,
-                            varvalue=clsdata[varname],
-                            tag='shape', p0first=True)
+        recipe.addVar(varobj, varname + appendstr, varvalue=clsdata[varname], tags=['shape'])
     return

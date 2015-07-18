@@ -101,7 +101,7 @@ class PDFGeneratorExt(BasePDFGenerator):
         if optimized:
             self._calc.evaluatortype = 'OPTIMIZED'
         else:
-            self._calc.evaluatortype = 'DEFAULT'
+            self._calc.evaluatortype = 'BASIC'
         return
     
     def setAdele(self, adele, dPDFmode='total', extlen=65536):
