@@ -9,9 +9,9 @@ import itertools
 from srfitext.fitresults import plotResults
 from srfitext.utils import saveStruOutput
 
-from srfitext.optimize.bayesian import bayesian
-from srfitext.optimize.scipy import scipyLeastsq, scipyFmin, scipyBasinhopping, scipyODR
-from srfitext.optimize.de import deapDE, deapGA, RMC
+from srfitext.optimizemethod.bayesian import bayesian
+from srfitext.optimizemethod.scipymethod import scipyLeastsq, scipyFmin, scipyBasinhopping, scipyODR
+from srfitext.optimizemethod.de import deapDE, deapGA, RMC
 
 
 def optimizeExt(recipe, method='leastsq', *args, **kwargs):
