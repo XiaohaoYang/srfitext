@@ -3,8 +3,8 @@ from nputils import getAtomsUsingExp
 import numpy as np
 import scipy.spatial.distance as ssd
 import itertools
-from easyfit.npfit.npatom import NPAtom, NPAtomTet
-from easyfit.npfit.npstructure import NPStructure
+# from easyfit.npfit.npatom import NPAtom, NPAtomTet
+# from easyfit.npfit.npstructure import NPStructure
 
 class BaseDecorator(object):
     '''Structure decorator

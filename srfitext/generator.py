@@ -13,10 +13,10 @@ from srfitext.structure import StructureExt
 from srfitext.calculator import DPDFCalculator
 from pyobjcryst._pyobjcryst import Molecule
 
-def fvarbkg(x, bkgslope):
+'''def fvarbkg(x, bkgslope):
     return bkgslope * x
 makePDFBaseline("varbkg", fvarbkg, bkgslope=0)
-
+'''
 
 class PDFGeneratorExt(BasePDFGenerator):
     '''

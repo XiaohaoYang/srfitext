@@ -1,16 +1,15 @@
 #!/usr/bin/env python
 import numpy as np
 from diffpy.srfit.fitbase import FitRecipe
-from srfitext.utils import PConverter
-import deap
+# from srfitext.utils import PConverter
 
 class FitRecipeExt(FitRecipe):
     '''modified fitrecipe
-    residual function and scalarResidual function can be set to adapted max entropy method 
+    # residual function and scalarResidual function can be set to adapted max entropy method 
     '''
 
-    def getValues(self):
-        """Get the current values of the variables in a list."""
+    '''def getValues(self):
+        # Get the current values of the variables in a list.
         rv = [v.value for v in self._parameters.values() if
             self.isFree(v)]
 
@@ -19,7 +18,7 @@ class FitRecipeExt(FitRecipe):
         return rv
 
     def getValuesFlat(self):
-        """Get the current values of the variables in a flatten array."""
+        # Get the current values of the variables in a flatten array.
         rv = [v.value for v in self._parameters.values() if
             self.isFree(v)]
         return self.pconverter.toArray(rv)
@@ -29,10 +28,6 @@ class FitRecipeExt(FitRecipe):
         return zip(lb, ub)
 
     def getBounds2(self):
-        """Get the bounds on variables in two lists.
-
-        Returns lower- and upper-bound lists of variable bounds.
-        """
         bounds = self.getBounds()
         lb = [b[0] for b in bounds]
         ub = [b[1] for b in bounds]
@@ -44,17 +39,16 @@ class FitRecipeExt(FitRecipe):
         return lb, ub
 
     def getBounds2Flat(self):
-        """Get the bounds on variables in two flatten array.
-
-        Returns lower- and upper-bound lists of variable bounds.
-        """
         bounds = self.getBounds()
         lb = self.pconverter.toArray([b[0] for b in bounds])
         ub = self.pconverter.toArray([b[1] for b in bounds])
-        return lb, ub
-
-
-
+        return lb, ub'''
+    
+    def __init__(self, *args, **kwargs):
+        super(FitRecipeExt, self).__init__(*args, **kwargs)
+        self.perviousp = np.array([])
+        return
+    
     # flag for residual mode, could be 'l2'(default) 'l1'
     _residualmode = 'l2'
 
@@ -77,8 +71,9 @@ class FitRecipeExt(FitRecipe):
         if self._residualmode == 'l1':
             scalarResidual = sum(chiv) + restraints
         """
-        if len(p) != self.pn and (p != []):
-            p = self.pconverter.toList(p)
+        
+        # if len(p) != self.pn and (p != []):
+        #    p = self.pconverter.toList(p)
 
         # Prepare, if necessary
         self._prepare()
@@ -93,6 +88,13 @@ class FitRecipeExt(FitRecipe):
         # needs to be cycled once.
         for con in self._oconstraints:
             con.update()
+        
+        
+        tempp = np.array(self.values)
+        if np.all(self.perviousp == tempp):
+            return self.perviousv
+        else:
+            self.perviousp = tempp
 
         # Calculate the bare chiv
         chiv = np.concatenate([
@@ -111,7 +113,9 @@ class FitRecipeExt(FitRecipe):
 
         for fithook in self.fithooks:
             fithook.postcall(self, chiv)
-
+            
+        self.perviousv = chiv
+        # self.perviousp = p
         return chiv
 
     def scalarResidual(self, p=[]):
@@ -246,27 +250,27 @@ class FitRecipeExt(FitRecipe):
             p0[k] = v
         return np.r_[rv]
 
-    def fix(self, *args, **kw):
+    '''def fix(self, *args, **kw):
         FitRecipe.fix(self, *args, **kw)
-        self.pn = len(self.names)
-        self.pconverter = PConverter(self)
+        # self.pn = len(self.names)
+        # self.pconverter = PConverter(self)
         return
 
     def fixCopy(self, *args, **kw):
         FitRecipe.fix(self, *args, **kw)
-        self.pn = len(self.names)
-        self.pconverter = PConverter(self, copy=True)
+        # self.pn = len(self.names)
+        # self.pconverter = PConverter(self, copy=True)
         return
 
     def free(self, *args, **kw):
         FitRecipe.free(self, *args, **kw)
-        self.pn = len(self.names)
-        self.pconverter = PConverter(self)
+        # self.pn = len(self.names)
+        # self.pconverter = PConverter(self)
         return
 
     def freeCopy(self, *args, **kw):
         FitRecipe.free(self, *args, **kw)
-        self.pn = len(self.names)
-        self.pconverter = PConverter(self, copy=True)
-        return
+        # self.pn = len(self.names)
+        # self.pconverter = PConverter(self, copy=True)
+        return'''
 

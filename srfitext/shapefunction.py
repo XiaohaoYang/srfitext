@@ -40,31 +40,38 @@ def sheetCF(r, sthick, ratio):
 _shapeFunctionMeta = \
             {'sphere':
                 {'name':'sphericalCF',
+                 'argnames':['psize'],
                  'psize':[20, 0, 100], },
             'spheroid':
                 {'name':'spheroidalCF',
+                 'argnames':['erad', 'prad'],
                  'erad':[10, 0, 100],
                  'prad':[10, 0, 100], },
             'spheroid2':
                 {'name':'spheroidalCF2',
+                 'argnames':['psize', 'axrat'],
                  'psize':[20, 0, 100],
                  'axrat':[1.0, 0, 10.0], },
             'logshpere':
                 {'name':'lognormalSphericalCF',
+                 'argnames':['psize', 'psig'],
                  'psize':[20, 0, 100],
                  'psig':[1, 0, 10], },
             'sheet':
                 {'name':'sheetCF',
                  'func': sheetCF,
+                 'argnames':['sthick', 'ratio'],
                  'sthick':[20, 0, 100],
                  'ratio': [0.5, 0, 1.0]},
             'shell':
                 {'name':'shellCF',
+                 'argnames':['radius', 'thickness'],
                  'radius':[10, 0, 100],
                  'thickness':[10, 0, 100], },
             'bnn':
                 {'name':'bnn',
                  'func': bnn,
+                 'argnames':['psize', 'ratio'],
                  'psize': [20, 0, 100],
                  'ratio': [0.5, 0, 1.0]},
             }
@@ -89,24 +96,23 @@ def assignShapeFunction(recipe, contribution, generator, shape, appendstr=''):
             thickness   --  Thickness of shell
     '''
     import diffpy.srfit.pdf.characteristicfunctions
-    funcdata = _shapeFunctionMeta[shape]
-    funcname = funcdata['name']
-    if funcdata.has_key('func'):
-        func = funcdata['func']
+    fdata = _shapeFunctionMeta[shape]
+    fname = fdata['name'] + appendstr
+    argnames = [v + appendstr for v in fdata['argnames']]
+    if fdata.has_key('func'):
+        func = fdata['func']
     else:
-        func = getattr(diffpy.srfit.pdf.characteristicfunctions, funcname)
-
-    contribution.registerFunction(func, name=funcname)
+        func = getattr(diffpy.srfit.pdf.characteristicfunctions, fdata['name'])
+    contribution.registerFunction(func, name=fname, argnames=['r'] + argnames)
 
     equationstr = contribution.eqstr
     generatorname = generator.name
-    equationstr = equationstr.replace(' ' + generatorname + ' ', ' ( %s * %s ) ' % (funcname, generatorname))
+    equationstr = equationstr.replace(' ' + generatorname + ' ', ' ( %s * %s ) ' % (fname, generatorname))
     contribution.eqstr = equationstr
     contribution.setEquation(equationstr)
-    varlist = func.func_code.co_varnames[1:func.func_code.co_argcount]
-    for varname in varlist:
-        varobj = getattr(contribution, varname)
-        recipe.addVar(varobj, varname + appendstr, varvalue=funcdata[varname], tags=['shape'])
+    for vname, aname in zip(argnames, fdata['argnames']):
+        varobj = getattr(contribution, vname)
+        recipe.addVar(varobj, vname, varvalue=fdata[aname], tags=['shape'])
     return
 
 _sasShapeFunctionMeta = \

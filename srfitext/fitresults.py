@@ -158,7 +158,10 @@ def bayesianPlot(trace, filepath, show=False, shrink=1, burnout=0):
 
     varnames = trace.varnames
     for varn in varnames:
-        data = trace.samples[varn][burnout::shrink]
+        data = trace.get_values(varn, 0, 1, combine=True, squeeze=True)
+        data.sort()
+        dlen = len(data)
+        data = data[dlen / 40:-dlen / 40]
         plt.figure(varn)
         plt.clf()
         plt.title(varn)
